@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+
+  <title>Payment Cancelled | TCS Parent Portal</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      font-family:
+        Inter,
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(
+          145deg,
+          #fff7ed 0%,
+          #fafafa 55%,
+          #f8eee5 100%
+        );
+      color: #17352d;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      padding: 40px 32px;
+      border: 1px solid #eadfd4;
+      border-radius: 24px;
+      background: #ffffff;
+      box-shadow:
+        0 20px 50px
+        rgba(56, 43, 31, 0.12);
+      text-align: center;
+    }
+
+    .logo {
+      margin-bottom: 24px;
+      color: #17352d;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+
+    .cancel-icon {
+      width: 82px;
+      height: 82px;
+      margin: 0 auto 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #fff0e5;
+      color: #c45c22;
+      font-size: 38px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      color: #17352d;
+      font-size: 30px;
+      line-height: 1.2;
+    }
+
+    .message {
+      margin: 0;
+      color: #52665f;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .notice {
+      margin: 26px 0;
+      padding: 16px;
+      border-radius: 14px;
+      background: #fff7f0;
+      color: #704a31;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      min-height: 52px;
+      border: 0;
+      border-radius: 14px;
+      background: #17352d;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition:
+        transform 150ms ease,
+        background 150ms ease;
+    }
+
+    button:hover {
+      background: #214b40;
+      transform: translateY(-1px);
+    }
+
+    button:focus-visible {
+      outline: 3px solid #93cdb5;
+      outline-offset: 3px;
+    }
+
+    .return-help {
+      display: none;
+      margin: 18px 0 0;
+      color: #52665f;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .footer {
+      margin: 28px 0 0;
+      color: #82918c;
+      font-size: 12px;
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 16px;
+      }
+
+      .card {
+        padding: 34px 22px;
+        border-radius: 20px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <div class="logo">
+      THABAZIMBI CHRISTIAN SCHOOL
+    </div>
+
+    <div
+      class="cancel-icon"
+      aria-hidden="true"
+    >
+      ×
+    </div>
+
+    <h1>Payment cancelled</h1>
+
+    <p class="message">
+      This PayFast checkout was not completed.
+      Your school fee balance has not been reduced.
+    </p>
+
+    <div class="notice">
+      You can return to the TCS Parent Portal
+      and try the payment again whenever you are ready.
+    </div>
+
+    <button
+      id="return-button"
+      type="button"
+    >
+      Return to TCS Parent Portal
+    </button>
+
+    <p
+      id="return-help"
+      class="return-help"
+      role="status"
+    >
+      You may now close this browser tab and
+      return to the TCS Parent Portal.
+    </p>
+
+    <p class="footer">
+      Secure payment processing provided by PayFast.
+    </p>
+  </main>
+
+  <script>
+    const returnButton =
+      document.getElementById("return-button");
+
+    const returnHelp =
+      document.getElementById("return-help");
+
+    returnButton.addEventListener("click", function () {
+      returnHelp.style.display = "block";
+      returnButton.textContent =
+        "You may close this page";
+
+      window.close();
+    });
+  </script>
+</body>
+</html>

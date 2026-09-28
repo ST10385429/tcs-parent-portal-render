@@ -1,0 +1,139 @@
+name: TCS Parent Portal CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  mobile-checks:
+    name: Mobile - TypeScript and Lint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: TCS-Parent-Portal/mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: TCS-Parent-Portal/mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Expo lint
+        run: npm run lint
+
+  backend-checks:
+    name: Backend - TypeScript and Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: TCS-Parent-Portal/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: TCS-Parent-Portal/backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm install
+
+      - name: Backend TypeScript check
+        run: npm run typecheck
+
+      - name: Run automated backend tests
+        run: npm test
+
+  quality-gates:
+    name: Quality Gates Passed
+    runs-on: ubuntu-latest
+
+    needs:
+      - mobile-checks
+      - backend-checks
+
+    steps:
+      - name: Confirm quality checks
+        run: echo "All TCS Parent Portal quality checks completed successfully."
+
+  deploy-production:
+    name: Deploy Backend to Netlify
+    runs-on: ubuntu-latest
+
+    needs:
+      - quality-gates
+
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+
+    defaults:
+      run:
+        working-directory: TCS-Parent-Portal/backend
+
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: TCS-Parent-Portal/backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm install
+
+      - name: Deploy production backend
+        run: >
+          npx netlify deploy
+          --prod
+          --dir=public
+          --functions=netlify/functions
+          --site="$NETLIFY_SITE_ID"
+          --auth="$NETLIFY_AUTH_TOKEN"
+
+  deployment-success:
+    name: Production Deployment Successful
+    runs-on: ubuntu-latest
+
+    needs:
+      - deploy-production
+
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Confirm deployment
+        run: echo "TCS Parent Portal production backend deployed successfully."

@@ -1,0 +1,31 @@
+{
+  "name": "tcs-backend",
+  "version": "1.0.0",
+  "description": "Secure backend services for the TCS Parent Portal.",
+  "main": "index.js",
+  "scripts": {
+  "dev": "tsx server.ts",
+  "start": "node dist/server.js",
+  "build": "tsc -p tsconfig.build.json",
+  "typecheck": "tsc --noEmit",
+  "test": "tsx tests/basic.test.ts",
+  "check": "npm run typecheck && npm test"
+},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@netlify/functions": "^6.0.0",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "firebase-admin": "^14.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.1",
+    "netlify-cli": "^27.8.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

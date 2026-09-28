@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "TCS Parent Portal",
+    "slug": "tcs-parent-portal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "tcsparentportal",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "za.co.thabazimbichristianschool.portal"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#172B4D",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "za.co.thabazimbichristianschool.portal"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#172B4D",
+          "image": "./assets/images/tcs-logo.jpeg",
+          "imageWidth": 120
+        }
+      ],
+      "expo-notifications",
+      "expo-sharing",
+      "expo-image",
+      "expo-web-browser",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5d9bc85f-69c2-4ecd-9fdf-3e8464b5328e"
+      }
+    },
+    "owner": "haileynaicker"
+  }
+}
