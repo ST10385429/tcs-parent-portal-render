@@ -48,3 +48,5 @@ payfast-backend/node_modules/
 payfast-backend/.env
 payfast-backend/.env.*
 !payfast-backend/.env.example
+
+dist/
