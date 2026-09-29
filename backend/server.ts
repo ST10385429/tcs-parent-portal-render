@@ -155,6 +155,30 @@ const app = express();
 
 app.set("trust proxy", 1);
 
+app.use((request, response, next) => {
+  response.setHeader(
+    "Access-Control-Allow-Origin",
+    "*",
+  );
+
+  response.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  );
+
+  response.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization",
+  );
+
+  if (request.method === "OPTIONS") {
+    response.status(204).end();
+    return;
+  }
+
+  next();
+});
+
 app.use(
   express.raw({
     type: "*/*",
