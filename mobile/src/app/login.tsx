@@ -3,7 +3,10 @@ import {
   useRouter,
 } from "expo-router";
 
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
 
 import {
   ActivityIndicator,
@@ -29,6 +32,8 @@ import { colors } from "@/theme/colors";
 
 import type { UserRole } from "@/types/auth";
 
+type FormField = "email" | "password";
+
 const dashboardRoutes: Record<UserRole, Href> = {
   parent: "/parent",
   teacher: "/teacher",
@@ -37,6 +42,9 @@ const dashboardRoutes: Record<UserRole, Href> = {
 
 export default function LoginScreen() {
   const router = useRouter();
+
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] =
@@ -47,32 +55,63 @@ export default function LoginScreen() {
     useState(false);
   const [errorMessage, setErrorMessage] =
     useState("");
+  const [errorField, setErrorField] =
+    useState<FormField | null>(null);
+  const [focusedField, setFocusedField] =
+    useState<FormField | null>(null);
+
+  const clearError = () => {
+    setErrorMessage("");
+    setErrorField(null);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    clearError();
+  };
+
+  const handlePasswordChange = (
+    value: string,
+  ) => {
+    setPassword(value);
+    clearError();
+  };
 
   const handleLogin = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     const normalizedEmail = email
       .trim()
       .toLowerCase();
 
-    setErrorMessage("");
+    clearError();
 
     if (!normalizedEmail) {
+      setErrorField("email");
       setErrorMessage(
         "Please enter your email address.",
       );
+      emailInputRef.current?.focus();
       return;
     }
 
     if (!normalizedEmail.includes("@")) {
+      setErrorField("email");
       setErrorMessage(
         "Please enter a valid email address.",
       );
+      emailInputRef.current?.focus();
       return;
     }
 
     if (!password) {
+      setErrorField("password");
       setErrorMessage(
         "Please enter your password.",
       );
+      passwordInputRef.current?.focus();
       return;
     }
 
@@ -91,6 +130,7 @@ export default function LoginScreen() {
 
       router.replace(destination);
     } catch (error) {
+      setErrorField(null);
       setErrorMessage(
         getLoginErrorMessage(error),
       );
@@ -113,6 +153,7 @@ export default function LoginScreen() {
           contentContainerStyle={
             styles.scrollContent
           }
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -158,19 +199,45 @@ export default function LoginScreen() {
               </Text>
 
               <TextInput
+                ref={emailInputRef}
+                accessibilityHint={
+                  errorField === "email"
+                    ? "Correct the email address, then continue."
+                    : "Enter the email address provided by the school."
+                }
                 accessibilityLabel="Email address"
                 autoCapitalize="none"
                 autoComplete="email"
                 autoCorrect={false}
                 editable={!isSubmitting}
                 keyboardType="email-address"
-                onChangeText={setEmail}
+                onBlur={() =>
+                  setFocusedField(
+                    (currentField) =>
+                      currentField === "email"
+                        ? null
+                        : currentField,
+                  )
+                }
+                onChangeText={handleEmailChange}
+                onFocus={() =>
+                  setFocusedField("email")
+                }
+                onSubmitEditing={() =>
+                  passwordInputRef.current?.focus()
+                }
                 placeholder="name@example.com"
                 placeholderTextColor={
                   colors.textSecondary
                 }
                 returnKeyType="next"
-                style={styles.input}
+                style={[
+                  styles.input,
+                  focusedField === "email" &&
+                    styles.inputFocused,
+                  errorField === "email" &&
+                    styles.inputError,
+                ]}
                 value={email}
               />
             </View>
@@ -181,14 +248,38 @@ export default function LoginScreen() {
               </Text>
 
               <View
-                style={styles.passwordContainer}
+                style={[
+                  styles.passwordContainer,
+                  focusedField === "password" &&
+                    styles.inputFocused,
+                  errorField === "password" &&
+                    styles.inputError,
+                ]}
               >
                 <TextInput
+                  ref={passwordInputRef}
+                  accessibilityHint={
+                    errorField === "password"
+                      ? "Enter your password, then sign in."
+                      : "Enter the password supplied by the school."
+                  }
                   accessibilityLabel="Password"
                   autoCapitalize="none"
-                  autoComplete="password"
+                  autoComplete="current-password"
+                  autoCorrect={false}
                   editable={!isSubmitting}
-                  onChangeText={setPassword}
+                  onBlur={() =>
+                    setFocusedField(
+                      (currentField) =>
+                        currentField === "password"
+                          ? null
+                          : currentField,
+                    )
+                  }
+                  onChangeText={handlePasswordChange}
+                  onFocus={() =>
+                    setFocusedField("password")
+                  }
                   onSubmitEditing={handleLogin}
                   placeholder="Enter your password"
                   placeholderTextColor={
@@ -197,17 +288,27 @@ export default function LoginScreen() {
                   returnKeyType="done"
                   secureTextEntry={!showPassword}
                   style={styles.passwordInput}
+                  textContentType="password"
                   value={password}
                 />
 
                 <Pressable
+                  accessibilityHint={
+                    showPassword
+                      ? "Hides the password characters."
+                      : "Shows the password characters."
+                  }
                   accessibilityLabel={
                     showPassword
                       ? "Hide password"
                       : "Show password"
                   }
                   accessibilityRole="button"
+                  accessibilityState={{
+                    disabled: isSubmitting,
+                  }}
                   disabled={isSubmitting}
+                  hitSlop={8}
                   onPress={() =>
                     setShowPassword(
                       (currentValue) =>
@@ -233,7 +334,9 @@ export default function LoginScreen() {
 
             {errorMessage ? (
               <View
-                accessibilityLiveRegion="polite"
+                accessible
+                accessibilityLiveRegion="assertive"
+                accessibilityRole="alert"
                 style={styles.errorContainer}
               >
                 <Text style={styles.errorText}>
@@ -243,8 +346,21 @@ export default function LoginScreen() {
             ) : null}
 
             <Pressable
-              accessibilityLabel="Sign in"
+              accessibilityHint={
+                isSubmitting
+                  ? "Please wait while your account is being verified."
+                  : "Signs in and opens your dashboard."
+              }
+              accessibilityLabel={
+                isSubmitting
+                  ? "Signing in"
+                  : "Sign in"
+              }
               accessibilityRole="button"
+              accessibilityState={{
+                busy: isSubmitting,
+                disabled: isSubmitting,
+              }}
               disabled={isSubmitting}
               onPress={handleLogin}
               style={({ pressed }) => [
@@ -258,6 +374,7 @@ export default function LoginScreen() {
             >
               {isSubmitting ? (
                 <ActivityIndicator
+                  accessibilityLabel="Signing in"
                   color={colors.buttonText}
                   size="small"
                 />
@@ -279,15 +396,25 @@ export default function LoginScreen() {
           </View>
 
           <Pressable
+            accessibilityHint={
+              "Returns to the welcome page."
+            }
             accessibilityLabel="Return to welcome page"
             accessibilityRole="button"
+            accessibilityState={{
+              disabled: isSubmitting,
+            }}
             disabled={isSubmitting}
+            hitSlop={8}
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed &&
+                !isSubmitting &&
+                styles.backButtonPressed,
+            ]}
           >
-            <Text
-              style={styles.backButtonText}
-            >
+            <Text style={styles.backButtonText}>
               Return to welcome page
             </Text>
           </Pressable>
@@ -428,6 +555,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
 
+  inputFocused: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+
+  inputError: {
+    borderWidth: 2,
+    borderColor: colors.error,
+  },
+
   passwordContainer: {
     minHeight: 52,
     flexDirection: "row",
@@ -520,10 +657,16 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
+    minHeight: 44,
     alignSelf: "center",
+    justifyContent: "center",
     marginTop: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
+  },
+
+  backButtonPressed: {
+    opacity: 0.72,
   },
 
   backButtonText: {
