@@ -121,6 +121,12 @@ export default function TeacherTabLayout() {
           href: null,
         }}
       />
+
+      <Tabs.Screen
+  name="settings"
+  options={{ href: null }}
+/>
+
     </Tabs>
   );
 }
