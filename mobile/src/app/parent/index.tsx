@@ -517,10 +517,16 @@ export default function ParentDashboard() {
     user,
   ]);
 
-  const visibleAnnouncements =
+  const visibleAnnouncements = useMemo(
+  () =>
     isLoadingDashboard
       ? []
-      : announcements;
+      : announcements,
+  [
+    announcements,
+    isLoadingDashboard,
+  ],
+);
 
   const visibleEvents =
     isLoadingDashboard
