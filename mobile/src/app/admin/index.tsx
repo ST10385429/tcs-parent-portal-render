@@ -114,6 +114,14 @@ const adminActions: AdminAction[] = [
     route:
       "/admin/record-payment" as Href,
   },
+  {
+    label: "Settings",
+    description:
+      "Manage your account, password and security settings.",
+    icon: "settings-outline",
+    colour: colors.primary,
+    route: "/admin/settings" as Href,
+  },
 ];
 
 export default function AdminDashboard() {

@@ -171,6 +171,14 @@ export default function AdminTabLayout() {
         name="classes"
         options={{ href: null }}
       />
+
+      <Tabs.Screen
+  name="settings"
+  options={{ href: null }}
+/>
+
+
+
     </Tabs>
   );
 }
