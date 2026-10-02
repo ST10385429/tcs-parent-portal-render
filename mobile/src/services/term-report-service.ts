@@ -1,37 +1,45 @@
+// Firestore SDK imports used to read/write term report documents.
 import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
+  collection,       // Reference a Firestore collection
+  doc,              // Reference a single document by id
+  getDoc,           // Fetch one document
+  getDocs,          // Fetch multiple documents
+  query,            // Build a query
+  serverTimestamp,  // Firestore placeholder for server-side timestamp
+  setDoc,           // Create or overwrite a document
+  where,            // Add a where-clause to a query
 } from "firebase/firestore";
 
+// The shared Firestore instance initialised elsewhere in the app.
 import { firestore } from "@/lib/firebase";
 
+// Service used to send academic/finance related notifications to parents.
 import {
   createAcademicFinanceNotification,
 } from "@/services/academic-finance-notification-api-service";
 
+// Fee service reused here for the "fees up to date" check on approval.
 import {
   getFeeAccount,
 } from "@/services/fee-service";
 
+// Domain types shared across the app.
 import type {
-  SubjectResult,
-  TermReport,
-  TermReportStatus,
-  TermReportSubject,
+  SubjectResult,      // A single teacher-submitted subject mark
+  TermReport,         // A compiled term report
+  TermReportStatus,   // "draft" | "withheld" | "approved"
+  TermReportSubject,  // A subject entry embedded inside a TermReport
 } from "@/types/school";
 
 /*
  * Keep this export so existing screens can continue importing
  * getFeeAccount from term-report-service if necessary.
+ *
+ * (Re-export rather than reimplement, so there's a single source of truth.)
  */
 export { getFeeAccount };
 
+// Safely reads a string from an unknown value, falling back if not a string.
 function readString(
   value: unknown,
   fallback = "",
@@ -41,6 +49,7 @@ function readString(
     : fallback;
 }
 
+// Safely reads a finite number from an unknown value, falling back otherwise.
 function readNumber(
   value: unknown,
   fallback = 0,
@@ -51,6 +60,8 @@ function readNumber(
     : fallback;
 }
 
+// Safely reads a Firestore Timestamp, verifying it looks like one
+// (has both toDate and toMillis) before returning it.
 function readTimestamp(
   value: unknown,
 ): TermReport["createdAt"] {
@@ -66,6 +77,7 @@ function readTimestamp(
   return null;
 }
 
+// Type guard validating that a value is one of the allowed report statuses.
 function isTermReportStatus(
   value: unknown,
 ): value is TermReportStatus {
@@ -76,6 +88,8 @@ function isTermReportStatus(
   );
 }
 
+// Normalises the raw `subjects` field from Firestore into a typed
+// TermReportSubject array, discarding anything malformed.
 function readSubjects(
   value: unknown,
 ): TermReportSubject[] {
@@ -84,6 +98,7 @@ function readSubjects(
   }
 
   return value
+    // Keep only plain objects (not arrays, not null).
     .filter(
       (
         item,
@@ -92,6 +107,8 @@ function readSubjects(
         typeof item === "object" &&
         !Array.isArray(item),
     )
+    // Map each object to a strongly-typed TermReportSubject,
+    // using safe readers for every field.
     .map((item) => ({
       subjectResultId:
         readString(
@@ -120,6 +137,8 @@ function readSubjects(
     }));
 }
 
+// Converts a raw Firestore document into a fully-typed TermReport,
+// applying safe readers/guards to every field.
 function mapTermReport(
   reportId: string,
   data: Record<string, unknown>,
@@ -183,6 +202,7 @@ function mapTermReport(
         data.overallComment,
       ),
 
+    // Defaults to "draft" if the stored status is missing or invalid.
     status:
       isTermReportStatus(
         data.status,
@@ -210,6 +230,7 @@ function mapTermReport(
         data.approvedAt,
       ),
 
+    // approvedBy is deliberately nullable (only set after approval).
     approvedBy:
       typeof data.approvedBy ===
       "string"
@@ -218,6 +239,9 @@ function mapTermReport(
   };
 }
 
+// Builds the deterministic document id for a term report from its
+// composite key: learnerId_academicYear_term{term}.
+// This guarantees one report per learner/year/term.
 function createTermReportId(
   learnerId: string,
   academicYear: number,
@@ -230,6 +254,8 @@ function createTermReportId(
   ].join("_");
 }
 
+// Returns the most recent timestamp (in millis) available on a result,
+// preferring submittedAt, then updatedAt, then createdAt, else 0.
 function getTimestampValue(
   result: SubjectResult,
 ): number {
@@ -251,6 +277,8 @@ function getTimestampValue(
   return 0;
 }
 
+// Given many subject results, keeps only the latest entry per subject
+// (keyed case-insensitively), then returns them sorted alphabetically.
 function selectLatestSubjectResults(
   results: SubjectResult[],
 ): SubjectResult[] {
@@ -262,11 +290,13 @@ function selectLatestSubjectResults(
 
   results.forEach(
     (result) => {
+      // Normalise subject name for case/whitespace-insensitive matching.
       const subjectKey =
         result.subject
           .trim()
           .toLowerCase();
 
+      // Skip results with no subject name.
       if (!subjectKey) {
         return;
       }
@@ -276,6 +306,7 @@ function selectLatestSubjectResults(
           subjectKey,
         );
 
+      // Replace the stored result if this one is newer.
       if (
         !existingResult ||
         getTimestampValue(
@@ -306,6 +337,8 @@ function selectLatestSubjectResults(
   );
 }
 
+// Fetches a term report by its document id. Returns null if the id is
+// blank or the document doesn't exist.
 export async function getTermReportById(
   reportId: string,
 ): Promise<TermReport | null> {
@@ -339,6 +372,8 @@ export async function getTermReportById(
   );
 }
 
+// Looks up an existing term report for a learner/year/term.
+// Returns null if arguments are invalid or no report exists.
 export async function getExistingTermReport(
   learnerId: string,
   academicYear: number,
@@ -347,6 +382,8 @@ export async function getExistingTermReport(
   const cleanedLearnerId =
     learnerId.trim();
 
+  // Validate inputs: learner id required, year positive integer,
+  // term must be 1..4.
   if (
     !cleanedLearnerId ||
     !Number.isInteger(
@@ -362,6 +399,7 @@ export async function getExistingTermReport(
     return null;
   }
 
+  // Deterministic id means we can look it up directly without a query.
   const reportId =
     createTermReportId(
       cleanedLearnerId,
@@ -374,6 +412,10 @@ export async function getExistingTermReport(
   );
 }
 
+// Compiles (creates or updates) a term report from a set of submitted
+// subject results. Enforces validation, de-duplicates to the latest
+// result per subject, checks fees before approval, and optionally sends
+// a notification to the parent. Returns the report id.
 export async function compileTermReport(
   administratorUid: string,
   submittedResults: SubjectResult[],
@@ -383,12 +425,14 @@ export async function compileTermReport(
   const cleanedAdministratorUid =
     administratorUid.trim();
 
+  // Ensure the caller is authenticated.
   if (!cleanedAdministratorUid) {
     throw new Error(
       "A signed-in administrator is required.",
     );
   }
 
+  // Must have at least one subject result to compile.
   if (
     submittedResults.length ===
     0
@@ -398,6 +442,7 @@ export async function compileTermReport(
     );
   }
 
+  // Validate status argument against the allowed set.
   if (
     requestedStatus !== "draft" &&
     requestedStatus !== "withheld" &&
@@ -408,9 +453,13 @@ export async function compileTermReport(
     );
   }
 
+  // Use the first result as the canonical learner/year/term/class for
+  // this compilation.
   const firstResult =
     submittedResults[0];
 
+  // Keep only results that belong to the same learner/year/term/class
+  // AND are still in the "submitted" state (i.e., not already compiled).
   const matchingResults =
     submittedResults.filter(
       (result) =>
@@ -426,6 +475,7 @@ export async function compileTermReport(
           "submitted",
     );
 
+  // If the same subject has multiple results, keep only the latest one.
   const selectedResults =
     selectLatestSubjectResults(
       matchingResults,
@@ -440,11 +490,13 @@ export async function compileTermReport(
     );
   }
 
+  // Load the learner's fee account to decide whether approval is allowed.
   const feeAccount =
     await getFeeAccount(
       firstResult.learnerId,
     );
 
+  // Approval requires fees to be up to date; otherwise block the action.
   if (
     requestedStatus ===
       "approved" &&
@@ -456,6 +508,7 @@ export async function compileTermReport(
     );
   }
 
+  // Project each selected result into the shape stored on the report.
   const subjects:
     TermReportSubject[] =
     selectedResults.map(
@@ -477,6 +530,7 @@ export async function compileTermReport(
       }),
     );
 
+  // Compute the average mark (rounded to nearest whole number).
   const totalMark =
     subjects.reduce(
       (
@@ -494,6 +548,7 @@ export async function compileTermReport(
         subjects.length,
     );
 
+  // Deterministic id ensures one report per learner/year/term.
   const reportId =
     createTermReportId(
       firstResult.learnerId,
@@ -508,11 +563,13 @@ export async function compileTermReport(
       reportId,
     );
 
+  // Check whether the report already exists (update vs. create).
   const existingReport =
     await getDoc(
       reportReference,
     );
 
+  // Fields that are always written on compile.
   const reportData = {
     learnerId:
       firstResult.learnerId,
@@ -542,6 +599,7 @@ export async function compileTermReport(
 
     averageMark,
 
+    // Trim so accidental whitespace doesn't get stored.
     overallComment:
       overallComment.trim(),
 
@@ -554,6 +612,7 @@ export async function compileTermReport(
     updatedAt:
       serverTimestamp(),
 
+    // Approval metadata only set when status is "approved".
     approvedAt:
       requestedStatus ===
       "approved"
@@ -567,6 +626,7 @@ export async function compileTermReport(
         : null,
   };
 
+  // Update existing report (merge to preserve createdAt) or create new.
   if (existingReport.exists()) {
     await setDoc(
       reportReference,
@@ -600,11 +660,14 @@ export async function compileTermReport(
     "approved"
   ) {
     try {
+      // Fire a "termReport" notification keyed by the report id.
       await createAcademicFinanceNotification(
         "termReport",
         reportId,
       );
     } catch (error) {
+      // Swallow notification errors: the report is already saved and
+      // approval should not be rolled back.
       console.error(
         "The term report was approved, but its notification could not be created:",
         error,
@@ -615,16 +678,20 @@ export async function compileTermReport(
   return reportId;
 }
 
+// Returns all approved term reports for a learner, sorted newest-first
+// by academic year, then by term descending.
 export async function getApprovedTermReports(
   learnerId: string,
 ): Promise<TermReport[]> {
   const cleanedLearnerId =
     learnerId.trim();
 
+  // Nothing to fetch without a learner id.
   if (!cleanedLearnerId) {
     return [];
   }
 
+  // Query termReports where learnerId matches AND status == "approved".
   const reportsQuery =
     query(
       collection(
@@ -651,6 +718,7 @@ export async function getApprovedTermReports(
     );
 
   return reportsSnapshot.docs
+    // Map each snapshot to a typed TermReport.
     .map(
       (reportDocument) =>
         mapTermReport(
@@ -662,6 +730,7 @@ export async function getApprovedTermReports(
           >,
         ),
     )
+    // Sort: newest academic year first, then newest term first.
     .sort(
       (
         first,
