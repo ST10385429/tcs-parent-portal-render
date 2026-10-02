@@ -20,6 +20,7 @@ type RequestBody = {
   userUid?: string;
   learnerId?: string;
   classId?: string;
+  assignmentId?: string;
   relationship?: string;
   subject?: string;
 };
@@ -93,6 +94,25 @@ function validateShortText(
   }
 
   return cleanedValue;
+}
+
+function createSubjectKey(
+  subject: string,
+): string {
+  return subject
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function createTeacherAssignmentId(
+  classId: string,
+  subject: string,
+): string {
+  return `${classId}--${createSubjectKey(subject)}`;
 }
 
 function getBearerToken(
@@ -626,6 +646,14 @@ async function assignTeacherClass(
     100,
   );
 
+  const subjectKey = createSubjectKey(subject);
+
+  if (!subjectKey) {
+    throw new Error(
+      "The subject could not be used for an assignment.",
+    );
+  }
+
   await Promise.all([
     requireUserRole(teacherUid, "teacher"),
     requireActiveClass(classId),
@@ -636,10 +664,32 @@ async function assignTeacherClass(
       .collection("teacherAssignments")
       .doc(teacherUid);
 
+  const assignmentsReference =
+    teacherReference.collection("classes");
+
+  const existingAssignmentsSnapshot =
+    await assignmentsReference
+      .where("classId", "==", classId)
+      .get();
+
+  const existingAssignmentReference =
+    existingAssignmentsSnapshot.docs.find(
+      (assignmentDocument) =>
+        createSubjectKey(
+          readOptionalString(
+            assignmentDocument.data().subject,
+          ),
+        ) === subjectKey,
+    )?.ref;
+
   const classAssignmentReference =
-    teacherReference
-      .collection("classes")
-      .doc(classId);
+    existingAssignmentReference ??
+    assignmentsReference.doc(
+      createTeacherAssignmentId(
+        classId,
+        subject,
+      ),
+    );
 
   const auditReference =
     adminFirestore
@@ -665,8 +715,11 @@ async function assignTeacherClass(
   batch.set(
     classAssignmentReference,
     {
+      assignmentId:
+        classAssignmentReference.id,
       classId,
       subject,
+      subjectKey,
       status: "active",
       assignedBy: administrator.uid,
       assignedAt:
@@ -687,6 +740,8 @@ async function assignTeacherClass(
     administratorEmail:
       administrator.email,
     details: {
+      assignmentId:
+        classAssignmentReference.id,
       classId,
       subject,
     },
@@ -711,9 +766,11 @@ async function unassignTeacherClass(
     "Teacher identifier",
   );
 
-  const classId = readRequiredString(
-    body.classId,
-    "Class identifier",
+  const assignmentId = validateShortText(
+    body.assignmentId,
+    "Assignment identifier",
+    1,
+    500,
   );
 
   await requireUserRole(
@@ -726,7 +783,7 @@ async function unassignTeacherClass(
       .collection("teacherAssignments")
       .doc(teacherUid)
       .collection("classes")
-      .doc(classId);
+      .doc(assignmentId);
 
   const assignmentSnapshot =
     await assignmentReference.get();
@@ -767,10 +824,17 @@ async function unassignTeacherClass(
     administratorEmail:
       administrator.email,
     details: {
-      classId,
+      assignmentId,
+      classId:
+        readOptionalString(
+          assignmentSnapshot.data()
+            ?.classId,
+        ),
       subject:
-        assignmentSnapshot.data()
-          ?.subject ?? "",
+        readOptionalString(
+          assignmentSnapshot.data()
+            ?.subject,
+        ),
     },
     createdAt:
       FieldValue.serverTimestamp(),

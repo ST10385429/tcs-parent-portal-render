@@ -76,6 +76,11 @@ export default function NewSubjectResultScreen() {
   ] = useState("");
 
   const [
+    availableSubjects,
+    setAvailableSubjects,
+  ] = useState<string[]>([]);
+
+  const [
     selectedTerm,
     setSelectedTerm,
   ] = useState(1);
@@ -157,8 +162,8 @@ export default function NewSubjectResultScreen() {
             return;
           }
 
-          const matchingAssignment =
-            assignments.find(
+          const matchingAssignments =
+            assignments.filter(
               (assignment) =>
                 assignment.classId ===
                   loadedLearner.currentClassId &&
@@ -166,21 +171,26 @@ export default function NewSubjectResultScreen() {
                   (assignedLearner) =>
                     assignedLearner.id ===
                     loadedLearner.id,
-                ),
+                ) &&
+                assignment.subject.trim().length > 0,
             );
 
-          if (!matchingAssignment) {
+          const loadedSubjects = [
+            ...new Set(
+              matchingAssignments.map(
+                (assignment) =>
+                  assignment.subject.trim(),
+              ),
+            ),
+          ].sort((firstSubject, secondSubject) =>
+            firstSubject.localeCompare(
+              secondSubject,
+            ),
+          );
+
+          if (loadedSubjects.length === 0) {
             setErrorMessage(
               "Your subject assignment for this learner could not be found.",
-            );
-            return;
-          }
-
-          if (
-            !matchingAssignment.subject.trim()
-          ) {
-            setErrorMessage(
-              "No subject has been assigned to your teacher account for this class.",
             );
             return;
           }
@@ -189,8 +199,17 @@ export default function NewSubjectResultScreen() {
             loadedLearner,
           );
 
+          setAvailableSubjects(
+            loadedSubjects,
+          );
+
           setAssignedSubject(
-            matchingAssignment.subject,
+            (currentSubject) =>
+              loadedSubjects.includes(
+                currentSubject,
+              )
+                ? currentSubject
+                : loadedSubjects[0],
           );
 
           setErrorMessage("");
@@ -820,13 +839,73 @@ export default function NewSubjectResultScreen() {
                 styles.subjectNoticeText
               }
             >
-              Your assigned subject is
-              loaded from your
-              administrator-managed teacher
-              assignment and cannot be
-              changed here.
+              {availableSubjects.length > 1
+                ? "Choose the subject you are submitting for this learner. Each submitted subject is saved separately."
+                : "Your assigned subject is loaded from your administrator-managed teacher assignment."}
             </Text>
           </View>
+
+          {availableSubjects.length > 1 ? (
+            <>
+              <Text
+                style={
+                  styles.fieldLabel
+                }
+              >
+                Assigned subject
+              </Text>
+
+              <View
+                style={
+                  styles.subjectSelector
+                }
+              >
+                {availableSubjects.map(
+                  (availableSubject) => {
+                    const isSelected =
+                      availableSubject ===
+                      assignedSubject;
+
+                    return (
+                      <Pressable
+                        key={availableSubject}
+                        accessibilityLabel={`Select ${availableSubject}`}
+                        accessibilityRole="button"
+                        disabled={
+                          isSaving ||
+                          isLoadingExistingResult
+                        }
+                        onPress={() =>
+                          setAssignedSubject(
+                            availableSubject,
+                          )
+                        }
+                        style={({ pressed }) => [
+                          styles.subjectButton,
+                          isSelected &&
+                            styles.subjectButtonSelected,
+                          pressed &&
+                            !isSaving &&
+                            !isLoadingExistingResult &&
+                            styles.buttonPressed,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.subjectButtonText,
+                            isSelected &&
+                              styles.subjectButtonTextSelected,
+                          ]}
+                        >
+                          {availableSubject}
+                        </Text>
+                      </Pressable>
+                    );
+                  },
+                )}
+              </View>
+            </>
+          ) : null}
 
           <Text
             style={
@@ -1484,6 +1563,46 @@ const styles =
       fontSize: 11,
       lineHeight: 17,
       marginLeft: 9,
+    },
+
+    subjectSelector: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+
+    subjectButton: {
+      minHeight: 42,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor:
+        colors.surface,
+      borderWidth: 1,
+      borderColor:
+        colors.border,
+      borderRadius: 13,
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+    },
+
+    subjectButtonSelected: {
+      backgroundColor:
+        colors.primary,
+      borderColor:
+        colors.primary,
+    },
+
+    subjectButtonText: {
+      color:
+        colors.textSecondary,
+      fontSize: 11,
+      fontWeight: "800",
+      textAlign: "center",
+    },
+
+    subjectButtonTextSelected: {
+      color:
+        colors.textOnPrimary,
     },
 
     sectionTitle: {
