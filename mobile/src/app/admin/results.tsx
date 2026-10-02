@@ -1,38 +1,54 @@
+// Expo's Ionicons component, used for all icons throughout the screen.
 import Ionicons from "@expo/vector-icons/Ionicons";
+// useRouter provides programmatic navigation; Href is the type for route strings.
 import { type Href, useRouter } from "expo-router";
+// React hooks: useEffect for side effects, useMemo for derived/memoized data,
+// useState for component state.
 import { useEffect, useMemo, useState } from "react";
+// Core React Native building blocks and components used to render the UI.
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+  ActivityIndicator, // Spinner shown during loading
+  Pressable,         // Touchable wrapper (replaces TouchableOpacity)
+  ScrollView,        // Scrollable container for the main content
+  StyleSheet,        // Creates optimized style objects
+  Text,              // Renders text
+  TextInput,         // Editable text field (used for the search box)
+  View,              // Generic container (like a div)
 } from "react-native";
+// SafeAreaView ensures content respects device notches/status bars.
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Service that fetches all submitted subject results from the backend.
 import { getAllSubmittedSubjectResults } from "@/services/subject-result-service";
+// Centralised colour palette so styling stays consistent across the app.
 import { colors } from "@/theme/colors";
+// TypeScript type describing a single subject result record.
 import type { SubjectResult } from "@/types/school";
 
+// Shape of a single grouped item: one learner's results for a specific
+// academic year and term, ready to be rendered as a "report card".
 type LearnerResultGroup = {
-  id: string;
-  learnerId: string;
-  learnerName: string;
-  studentNumber: string;
-  className: string;
-  academicYear: number;
-  term: number;
-  results: SubjectResult[];
+  id: string;            // Composite key: learnerId-academicYear-term
+  learnerId: string;     // Backend identifier for the learner
+  learnerName: string;   // Full name (first + last)
+  studentNumber: string; // School-issued student number
+  className: string;     // Class/grade the learner belongs to
+  academicYear: number;  // e.g., 2025
+  term: number;          // e.g., 1, 2, 3, 4
+  results: SubjectResult[]; // All subject results for this learner/term
 };
 
+// Groups a flat list of subject results by learner + academic year + term.
+// Returns groups sorted by year (desc), term (desc), then learner name (asc),
+// with each group's subjects sorted alphabetically.
 function groupSubjectResults(
   results: SubjectResult[],
 ): LearnerResultGroup[] {
+  // Map keyed by the composite group id for O(1) lookups while iterating.
   const groups = new Map<string, LearnerResultGroup>();
 
   results.forEach((result) => {
+    // Composite id: same learner in the same year/term shares a group.
     const groupId = [
       result.learnerId,
       result.academicYear,
@@ -41,11 +57,14 @@ function groupSubjectResults(
 
     const existingGroup = groups.get(groupId);
 
+    // If the group already exists, just append this result and move on.
     if (existingGroup) {
       existingGroup.results.push(result);
       return;
     }
 
+    // Otherwise, create a new group using the first result as the source
+    // of learner metadata (name, number, class, year, term).
     groups.set(groupId, {
       id: groupId,
       learnerId: result.learnerId,
@@ -59,40 +78,55 @@ function groupSubjectResults(
     });
   });
 
+  // Convert the map to an array, sort subjects within each group,
+  // then sort the groups themselves for display.
   return Array.from(groups.values())
     .map((group) => ({
       ...group,
+      // Alphabetical order of subjects within the learner's report.
       results: [...group.results].sort((first, second) =>
         first.subject.localeCompare(second.subject),
       ),
     }))
     .sort((first, second) => {
+      // Newest academic year first.
       if (first.academicYear !== second.academicYear) {
         return second.academicYear - first.academicYear;
       }
 
+      // Then newest term first.
       if (first.term !== second.term) {
         return second.term - first.term;
       }
 
+      // Finally, alphabetical by learner name.
       return first.learnerName.localeCompare(
         second.learnerName,
       );
     });
 }
 
+// Main screen component for the admin "Submitted Marks" view.
 export default function AdminResultsScreen() {
+  // Router instance used for back navigation and pushing to the report screen.
   const router = useRouter();
 
+  // Raw list of results returned from the service.
   const [results, setResults] = useState<SubjectResult[]>(
     [],
   );
+  // Text typed into the search box; filters visible groups.
   const [searchText, setSearchText] = useState("");
+  // True while the initial fetch is in flight.
   const [isLoading, setIsLoading] = useState(true);
+  // Non-empty when the fetch fails; drives the error card.
   const [errorMessage, setErrorMessage] = useState("");
+  // Incrementing this triggers the load useEffect to re-run (retry mechanism).
   const [reloadNumber, setReloadNumber] = useState(0);
 
+  // Fetch submitted results whenever reloadNumber changes.
   useEffect(() => {
+    // Guard so we don't update state after unmount (avoids React warnings).
     let isMounted = true;
 
     async function loadResults() {
@@ -100,6 +134,7 @@ export default function AdminResultsScreen() {
         const loadedResults =
           await getAllSubmittedSubjectResults();
 
+        // Bail out if the component unmounted while awaiting.
         if (!isMounted) {
           return;
         }
@@ -113,41 +148,52 @@ export default function AdminResultsScreen() {
         );
 
         if (isMounted) {
+          // Show a user-friendly error (details go to the console only).
           setErrorMessage(
             "Submitted marks could not be loaded. Check your connection and try again.",
           );
         }
       } finally {
+        // Always stop the spinner once the request completes.
         if (isMounted) {
           setIsLoading(false);
         }
       }
     }
 
+    // Fire the async loader (void = intentionally ignoring the promise).
     void loadResults();
 
+    // Cleanup: mark unmounted so late async updates are skipped.
     return () => {
       isMounted = false;
     };
   }, [reloadNumber]);
 
+  // Memoized grouping so we don't regroup on every render.
   const groupedResults = useMemo(
     () => groupSubjectResults(results),
     [results],
   );
 
+  // Memoized filtered list based on the current search text.
   const visibleGroups = useMemo(() => {
+    // Normalise the search term once.
     const search = searchText.trim().toLowerCase();
 
+    // No search -> show everything.
     if (!search) {
       return groupedResults;
     }
 
+    // Otherwise filter groups by matching any of their searchable fields.
     return groupedResults.filter((group) => {
+      // Concatenate all subject names so "math" matches any subject in the group.
       const subjectNames = group.results
         .map((result) => result.subject)
         .join(" ");
 
+      // Build a single lowercased haystack of everything searchable.
       const searchableText = [
         group.learnerName,
         group.studentNumber,
@@ -163,6 +209,7 @@ export default function AdminResultsScreen() {
     });
   }, [groupedResults, searchText]);
 
+  // Back navigation: use history if possible, otherwise jump to /admin.
   const handleGoBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -172,12 +219,15 @@ export default function AdminResultsScreen() {
     router.replace("/admin");
   };
 
+  // Retry: reset UI state and bump reloadNumber to re-trigger the effect.
   const handleRetry = () => {
     setIsLoading(true);
     setErrorMessage("");
     setReloadNumber((current) => current + 1);
   };
 
+  // Navigate to the report compilation screen for the given learner/term,
+  // passing the identifying parameters via the query string.
   const handleCompileReport = (
     group: LearnerResultGroup,
   ) => {
@@ -191,8 +241,10 @@ export default function AdminResultsScreen() {
   };
 
   return (
+    // SafeAreaView paints the top inset with the primary colour (matches header).
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
+        {/* ---- Top navigation bar ---- */}
         <View style={styles.header}>
           <Pressable
             accessibilityLabel="Return to admin dashboard"
@@ -216,14 +268,17 @@ export default function AdminResultsScreen() {
             Submitted Marks
           </Text>
 
+          {/* Empty spacer balances the back button to keep the title centred. */}
           <View style={styles.headerSpacer} />
         </View>
 
+        {/* ---- Scrollable main content ---- */}
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Summary card showing how many reports await compilation. */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryIcon}>
               <Ionicons
@@ -239,6 +294,7 @@ export default function AdminResultsScreen() {
               </Text>
 
               <Text style={styles.summaryText}>
+                {/* Pluralise "report"/"reports" based on the count. */}
                 {groupedResults.length} learner term{" "}
                 {groupedResults.length === 1
                   ? "report"
@@ -248,6 +304,7 @@ export default function AdminResultsScreen() {
             </View>
           </View>
 
+          {/* Search box: filters the visible groups as the user types. */}
           <View style={styles.searchContainer}>
             <Ionicons
               color={colors.textSecondary}
@@ -267,6 +324,7 @@ export default function AdminResultsScreen() {
               value={searchText}
             />
 
+            {/* Clear button only appears when there is text to clear. */}
             {searchText ? (
               <Pressable
                 accessibilityLabel="Clear search"
@@ -286,6 +344,7 @@ export default function AdminResultsScreen() {
             ) : null}
           </View>
 
+          {/* Section header above the list of report cards. */}
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>
               Teacher submissions
@@ -296,6 +355,7 @@ export default function AdminResultsScreen() {
             </Text>
           </View>
 
+          {/* ---- Loading state ---- */}
           {isLoading ? (
             <View style={styles.stateCard}>
               <ActivityIndicator
@@ -309,6 +369,7 @@ export default function AdminResultsScreen() {
             </View>
           ) : null}
 
+          {/* ---- Error state (only after loading completes) ---- */}
           {!isLoading && errorMessage ? (
             <View
               accessibilityLiveRegion="polite"
@@ -328,6 +389,7 @@ export default function AdminResultsScreen() {
                 {errorMessage}
               </Text>
 
+              {/* Retry button re-runs the fetch. */}
               <Pressable
                 accessibilityLabel="Retry loading marks"
                 accessibilityRole="button"
@@ -344,6 +406,7 @@ export default function AdminResultsScreen() {
             </View>
           ) : null}
 
+          {/* ---- Empty state: no submissions at all ---- */}
           {!isLoading &&
           !errorMessage &&
           groupedResults.length === 0 ? (
@@ -365,6 +428,7 @@ export default function AdminResultsScreen() {
             </View>
           ) : null}
 
+          {/* ---- Empty state: search yielded no matches ---- */}
           {!isLoading &&
           !errorMessage &&
           groupedResults.length > 0 &&
@@ -386,14 +450,17 @@ export default function AdminResultsScreen() {
             </View>
           ) : null}
 
+          {/* ---- Data state: render one card per visible group ---- */}
           {!isLoading && !errorMessage
             ? visibleGroups.map((group) => (
                 <View
                   key={group.id}
                   style={styles.reportCard}
                 >
+                  {/* Learner header: avatar, name, class/number, status badge */}
                   <View style={styles.reportHeader}>
                     <View style={styles.learnerAvatar}>
+                      {/* Compute initials from the first two words of the name. */}
                       <Text style={styles.learnerInitials}>
                         {group.learnerName
                           .split(" ")
@@ -415,6 +482,7 @@ export default function AdminResultsScreen() {
                       </Text>
                     </View>
 
+                    {/* Amber "PENDING" pill indicates the report isn't yet compiled. */}
                     <View style={styles.pendingBadge}>
                       <View style={styles.pendingDot} />
 
@@ -424,6 +492,7 @@ export default function AdminResultsScreen() {
                     </View>
                   </View>
 
+                  {/* Three-column summary: academic year, term, subject count. */}
                   <View style={styles.termRow}>
                     <View style={styles.termItem}>
                       <Text style={styles.termLabel}>
@@ -464,6 +533,7 @@ export default function AdminResultsScreen() {
                     Submitted subjects
                   </Text>
 
+                  {/* One nested card per subject, each with mark + comment. */}
                   {group.results.map((result) => (
                     <View
                       key={result.id}
@@ -484,6 +554,7 @@ export default function AdminResultsScreen() {
                           </Text>
                         </View>
 
+                        {/* Mark badge: green for pass (>= 50), red for fail. */}
                         <View
                           style={[
                             styles.markBadge,
@@ -509,6 +580,7 @@ export default function AdminResultsScreen() {
                         TEACHER COMMENT
                       </Text>
 
+                      {/* Fall back to a neutral message when no comment exists. */}
                       <Text style={styles.commentText}>
                         {result.comments ||
                           "No teacher comment was provided."}
@@ -516,6 +588,7 @@ export default function AdminResultsScreen() {
                     </View>
                   ))}
 
+                  {/* Primary action: navigate to the report compilation screen. */}
                   <Pressable
                     accessibilityHint="Opens the report compilation and approval screen"
                     accessibilityLabel={`Compile report for ${group.learnerName}`}
@@ -556,11 +629,15 @@ export default function AdminResultsScreen() {
   );
 }
 
+// Stylesheet for the screen. Grouped logically: layout > header > content >
+// cards > states. Colours come from the shared `colors` theme object.
 const styles = StyleSheet.create({
+  // Top-level safe area paints behind the notch with the primary colour.
   safeArea: {
     flex: 1,
     backgroundColor: colors.primary,
   },
+  // Content area below the header uses the neutral background.
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -575,7 +652,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     width: 75,
-    minHeight: 44,
+    minHeight: 44, // Meets minimum touch target size.
     flexDirection: "row",
     alignItems: "center",
   },
@@ -589,9 +666,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
+  // Empty spacer mirrors the back button width to keep the title centred.
   headerSpacer: {
     width: 75,
   },
+  // Main scroll content: constrains width for larger screens/tablets.
   content: {
     width: "100%",
     maxWidth: 600,
@@ -599,6 +678,7 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 40,
   },
+  // --- Summary card ---
   summaryCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -629,6 +709,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 3,
   },
+  // --- Search box ---
   searchContainer: {
     minHeight: 52,
     flexDirection: "row",
@@ -653,6 +734,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "center",
   },
+  // --- Section header above the list ---
   listHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -670,6 +752,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  // --- Per-learner report card ---
   reportCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -709,6 +792,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
   },
+  // Amber "PENDING" badge with a leading dot.
   pendingBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -729,6 +813,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: "800",
   },
+  // Three-column summary strip (year / term / subject count).
   termRow: {
     flexDirection: "row",
     backgroundColor: colors.primaryLight,
@@ -766,6 +851,7 @@ const styles = StyleSheet.create({
     marginTop: 17,
     marginBottom: 9,
   },
+  // --- Individual subject card ---
   subjectCard: {
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -791,6 +877,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 3,
   },
+  // Base badge shared by pass/fail variants.
   markBadge: {
     minWidth: 52,
     alignItems: "center",
@@ -827,6 +914,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 4,
   },
+  // --- Primary compile-report call-to-action ---
   compileButton: {
     minHeight: 58,
     flexDirection: "row",
@@ -837,6 +925,7 @@ const styles = StyleSheet.create({
     marginTop: 9,
     paddingHorizontal: 16,
   },
+  // Pressed state: darker background plus subtle scale-down effect.
   compileButtonPressed: {
     backgroundColor: colors.primaryDark,
     transform: [{ scale: 0.98 }],
@@ -854,6 +943,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 3,
   },
+  // --- Shared loading / empty state card ---
   stateCard: {
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -876,6 +966,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: "center",
   },
+  // --- Error state card ---
   errorCard: {
     alignItems: "center",
     backgroundColor: "#FDECEC",
@@ -914,6 +1005,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  // Shared "pressed" opacity used by many Pressables.
   pressed: {
     opacity: 0.7,
   },
