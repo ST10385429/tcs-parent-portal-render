@@ -281,16 +281,6 @@ export default function UserLinksScreen() {
     [parentLinks],
   );
 
-  const assignedClassIds = useMemo(
-    () =>
-      new Set(
-        teacherLinks.map(
-          (link) => link.classId,
-        ),
-      ),
-    [teacherLinks],
-  );
-
   const availableLearners = useMemo(() => {
     const normalizedSearch =
       searchText.trim().toLowerCase();
@@ -334,14 +324,6 @@ export default function UserLinksScreen() {
 
     return allClasses.filter(
       (schoolClass) => {
-        if (
-          assignedClassIds.has(
-            schoolClass.id,
-          )
-        ) {
-          return false;
-        }
-
         const searchableText = [
           schoolClass.name,
           schoolClass.gradeNumber,
@@ -360,7 +342,6 @@ export default function UserLinksScreen() {
     );
   }, [
     allClasses,
-    assignedClassIds,
     searchText,
   ]);
 
@@ -565,12 +546,12 @@ export default function UserLinksScreen() {
     }
 
     try {
-      setSavingId(link.classId);
+      setSavingId(link.assignmentId);
 
       const result =
         await unassignTeacherFromClass(
           uid,
-          link.classId,
+          link.assignmentId,
         );
 
       setTeacherLinks(
@@ -914,7 +895,7 @@ export default function UserLinksScreen() {
               ) : (
                 teacherLinks.map((link) => (
                   <View
-                    key={link.classId}
+                    key={link.assignmentId}
                     style={styles.linkCard}
                   >
                     <View
@@ -962,7 +943,7 @@ export default function UserLinksScreen() {
                       accessibilityRole="button"
                       disabled={
                         savingId ===
-                        link.classId
+                        link.assignmentId
                       }
                       onPress={() =>
                         confirmUnassignClass(
@@ -972,7 +953,7 @@ export default function UserLinksScreen() {
                       style={styles.removeButton}
                     >
                       {savingId ===
-                      link.classId ? (
+                      link.assignmentId ? (
                         <ActivityIndicator
                           color={colors.error}
                           size="small"
@@ -990,7 +971,7 @@ export default function UserLinksScreen() {
               )}
 
               <Text style={styles.sectionTitle}>
-                Assign class
+                Assign class and subject
               </Text>
             </>
           ) : null}

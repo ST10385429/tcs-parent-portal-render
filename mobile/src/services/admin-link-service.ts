@@ -23,6 +23,7 @@ export type ParentLearnerLink = {
 };
 
 export type TeacherClassLink = {
+  assignmentId: string;
   classId: string;
   subject: string;
   status: string;
@@ -60,7 +61,7 @@ type LinkApiRequest =
   | {
       action: "unassignTeacherClass";
       userUid: string;
-      classId: string;
+      assignmentId: string;
     };
 
 function readString(
@@ -443,8 +444,11 @@ export async function getTeacherClassLinksForAdmin(
 
       const classId = readString(
         data.classId,
-        assignmentDocument.id,
       );
+
+      if (!classId) {
+        return null;
+      }
 
       const schoolClass =
         await getSchoolClassById(classId);
@@ -454,6 +458,7 @@ export async function getTeacherClassLinksForAdmin(
       }
 
       return {
+        assignmentId: assignmentDocument.id,
         classId,
         subject: readString(
           data.subject,
@@ -476,11 +481,17 @@ export async function getTeacherClassLinksForAdmin(
       ): link is TeacherClassLink =>
         link !== null,
     )
-    .sort((firstLink, secondLink) =>
-      firstLink.schoolClass.name.localeCompare(
-        secondLink.schoolClass.name,
-      ),
-    );
+    .sort((firstLink, secondLink) => {
+      const classComparison =
+        firstLink.schoolClass.name.localeCompare(
+          secondLink.schoolClass.name,
+        );
+
+      return classComparison ||
+        firstLink.subject.localeCompare(
+          secondLink.subject,
+        );
+    });
 }
 
 export async function linkParentToLearner(
@@ -522,11 +533,11 @@ export async function assignTeacherToClass(
 
 export async function unassignTeacherFromClass(
   teacherUid: string,
-  classId: string,
+  assignmentId: string,
 ): Promise<LinkActionResult> {
   return callAdminLinksApi({
     action: "unassignTeacherClass",
     userUid: teacherUid.trim(),
-    classId: classId.trim(),
+    assignmentId: assignmentId.trim(),
   });
 }
