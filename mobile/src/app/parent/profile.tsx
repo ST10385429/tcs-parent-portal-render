@@ -143,9 +143,7 @@ export default function ParentProfileScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={
-            styles.content
-          }
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileCard}>
@@ -158,9 +156,7 @@ export default function ParentProfileScreen() {
               </Text>
             </View>
 
-            <View
-              style={styles.profileInformation}
-            >
+            <View style={styles.profileInformation}>
               <Text style={styles.profileName}>
                 {user
                   ? `${user.firstName} ${user.lastName}`.trim()
@@ -206,9 +202,7 @@ export default function ParentProfileScreen() {
                   size="small"
                 />
 
-                <Text
-                  style={styles.loadingText}
-                >
+                <Text style={styles.loadingText}>
                   Loading linked learners...
                 </Text>
               </View>
@@ -221,85 +215,50 @@ export default function ParentProfileScreen() {
                 />
 
                 <Text style={styles.emptyText}>
-                  No active learners are linked
-                  to this account. Contact the
-                  school administrator if a
-                  learner is missing.
+                  No active learners are linked to this account.
+                  Contact the school administrator if a learner
+                  is missing.
                 </Text>
               </View>
             ) : (
-              learners.map(
-                (learner, index) => (
-                  <View key={learner.id}>
-                    {index > 0 ? (
-                      <View
-                        style={styles.divider}
-                      />
-                    ) : null}
+              learners.map((learner, index) => (
+                <View key={learner.id}>
+                  {index > 0 ? (
+                    <View style={styles.divider} />
+                  ) : null}
 
-                    <View
-                      style={styles.learnerRow}
-                    >
-                      <View
-                        style={styles.childAvatar}
-                      >
-                        <Text
-                          style={
-                            styles.childInitials
-                          }
-                        >
-                          {getInitials(
-                            learner.firstName,
-                            learner.lastName,
-                          )}
-                        </Text>
-                      </View>
+                  <View style={styles.learnerRow}>
+                    <View style={styles.childAvatar}>
+                      <Text style={styles.childInitials}>
+                        {getInitials(
+                          learner.firstName,
+                          learner.lastName,
+                        )}
+                      </Text>
+                    </View>
 
-                      <View
-                        style={
-                          styles.learnerInformation
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.learnerName
-                          }
-                        >
-                          {learner.firstName}{" "}
-                          {learner.lastName}
-                        </Text>
+                    <View style={styles.learnerInformation}>
+                      <Text style={styles.learnerName}>
+                        {learner.firstName} {learner.lastName}
+                      </Text>
 
-                        <Text
-                          style={
-                            styles.learnerDetails
-                          }
-                        >
-                          {learner.schoolClass
-                            ?.name ??
-                            `Grade ${learner.currentGradeNumber}`}
-                          {learner.studentNumber
-                            ? ` • ${learner.studentNumber}`
-                            : ""}
-                        </Text>
-                      </View>
+                      <Text style={styles.learnerDetails}>
+                        {learner.schoolClass?.name ??
+                          `Grade ${learner.currentGradeNumber}`}
+                        {learner.studentNumber
+                          ? ` • ${learner.studentNumber}`
+                          : ""}
+                      </Text>
+                    </View>
 
-                      <View
-                        style={
-                          styles.activeBadge
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.activeBadgeText
-                          }
-                        >
-                          ACTIVE
-                        </Text>
-                      </View>
+                    <View style={styles.activeBadge}>
+                      <Text style={styles.activeBadgeText}>
+                        ACTIVE
+                      </Text>
                     </View>
                   </View>
-                ),
-              )
+                </View>
+              ))
             )}
           </View>
 
@@ -312,18 +271,14 @@ export default function ParentProfileScreen() {
               accessibilityLabel="Choose preferred language"
               accessibilityRole="button"
               onPress={() =>
-                router.push(
-                  "/parent/language" as Href,
-                )
+                router.push("/parent/language" as Href)
               }
               style={({ pressed }) => [
                 styles.preferenceRow,
                 pressed && styles.pressed,
               ]}
             >
-              <View
-                style={styles.preferenceIcon}
-              >
+              <View style={styles.preferenceIcon}>
                 <Ionicons
                   color={colors.primary}
                   name="language-outline"
@@ -331,26 +286,60 @@ export default function ParentProfileScreen() {
                 />
               </View>
 
-              <View
-                style={
-                  styles.preferenceContent
-                }
-              >
-                <Text
-                  style={
-                    styles.preferenceTitle
-                  }
-                >
+              <View style={styles.preferenceContent}>
+                <Text style={styles.preferenceTitle}>
                   Language preference
                 </Text>
 
-                <Text
-                  style={
-                    styles.preferenceDescription
-                  }
-                >
-                  Save the language you prefer
-                  for approved school content.
+                <Text style={styles.preferenceDescription}>
+                  Save the language you prefer for approved
+                  school content.
+                </Text>
+              </View>
+
+              <Ionicons
+                color={colors.textSecondary}
+                name="chevron-forward"
+                size={20}
+              />
+            </Pressable>
+          </View>
+
+          <Text style={styles.sectionLabel}>
+            ACCOUNT
+          </Text>
+
+          <View style={styles.sectionCard}>
+            <Pressable
+              accessibilityHint={
+                "Open your account, password and security settings."
+              }
+              accessibilityLabel="Open settings and security"
+              accessibilityRole="button"
+              onPress={() =>
+                router.push("/parent/settings" as Href)
+              }
+              style={({ pressed }) => [
+                styles.preferenceRow,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.preferenceIcon}>
+                <Ionicons
+                  color={colors.primary}
+                  name="settings-outline"
+                  size={20}
+                />
+              </View>
+
+              <View style={styles.preferenceContent}>
+                <Text style={styles.preferenceTitle}>
+                  Settings and security
+                </Text>
+
+                <Text style={styles.preferenceDescription}>
+                  Change your password and manage your account
+                  access.
                 </Text>
               </View>
 
@@ -369,21 +358,14 @@ export default function ParentProfileScreen() {
               size={23}
             />
 
-            <View
-              style={styles.securityContent}
-            >
-              <Text
-                style={styles.securityTitle}
-              >
+            <View style={styles.securityContent}>
+              <Text style={styles.securityTitle}>
                 Role-protected account
               </Text>
 
-              <Text
-                style={styles.securityText}
-              >
-                Your access is limited to
-                learners linked by a school
-                administrator.
+              <Text style={styles.securityText}>
+                Your access is limited to learners linked by a
+                school administrator.
               </Text>
             </View>
           </View>
