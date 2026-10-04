@@ -135,6 +135,13 @@ export default function ParentTabLayout() {
           href: null,
         }}
       />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
